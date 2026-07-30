@@ -3,8 +3,13 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { authRequired } from '../../middleware/auth.js';
 import { calcularSemaforo, isAtrasada, estimarMulta } from '../../domain/risco.js';
-import { montarKpiColaborador } from '../../domain/rendimento.js';
-import { formatCompetencia, competenciaAtual } from '../../domain/vencimento.js';
+import { calcularCarga, montarKpiColaborador } from '../../domain/rendimento.js';
+import {
+  formatCompetencia,
+  competenciaAtual,
+  parseCompetencia,
+  adicionarMesesCompetencia,
+} from '../../domain/vencimento.js';
 import { toDateOnlyKey } from '../../lib/dateOnly.js';
 
 export const dashboardRouter = Router();
@@ -230,9 +235,17 @@ dashboardRouter.get('/atrasos', authRequired, async (req, res, next) => {
 
 dashboardRouter.get('/rendimento', authRequired, async (req, res, next) => {
   try {
-    const competencia =
+    const competenciaRaw =
       (req.query.competencia as string) ||
       formatCompetencia(competenciaAtual().ano, competenciaAtual().mes);
+
+    let competenciaBase;
+    try {
+      competenciaBase = parseCompetencia(competenciaRaw);
+    } catch {
+      return res.status(400).json({ error: 'Competência inválida. Use AAAA-MM.' });
+    }
+    const competencia = formatCompetencia(competenciaBase.ano, competenciaBase.mes);
 
     const colaboradores = await prisma.colaborador.findMany({
       where: {
@@ -252,9 +265,10 @@ dashboardRouter.get('/rendimento', authRequired, async (req, res, next) => {
         },
       });
 
+      // KPIs de entrega (pontualidade, volume, atraso, ciclo) filtrados pela competência
       const daCompetencia = tarefas.filter((t) => t.competencia === competencia);
-      const kpi = montarKpiColaborador(
-        tarefas.map((t) => ({
+      const kpiCompetencia = montarKpiColaborador(
+        daCompetencia.map((t) => ({
           status: t.status,
           dataVencimento: t.dataVencimento,
           dataConclusao: t.dataConclusao,
@@ -264,7 +278,11 @@ dashboardRouter.get('/rendimento', authRequired, async (req, res, next) => {
         col.capacidadeMensal,
       );
 
-      const volumeCompetencia = daCompetencia.filter((t) => t.status === 'CONCLUIDA').length;
+      // Carga é snapshot atual (tarefas abertas), não histórica da competência
+      const abertas = tarefas.filter(
+        (t) => t.status !== 'CONCLUIDA' && t.status !== 'DISPENSADA',
+      );
+      const carga = calcularCarga(abertas, col.capacidadeMensal);
 
       ranking.push({
         colaborador: {
@@ -274,24 +292,27 @@ dashboardRouter.get('/rendimento', authRequired, async (req, res, next) => {
           cargo: col.cargo,
         },
         competencia,
-        volumeCompetencia,
-        ...kpi,
+        pontualidade: kpiCompetencia.pontualidade,
+        volumeEntregue: kpiCompetencia.volumeEntregue,
+        volumeCompetencia: kpiCompetencia.volumeEntregue,
+        atrasoMedioDias: kpiCompetencia.atrasoMedioDias,
+        tempoMedioCicloHoras: kpiCompetencia.tempoMedioCicloHoras,
+        capacidadeMensal: col.capacidadeMensal,
+        ...carga,
       });
     }
 
-    ranking.sort((a, b) => b.pontualidade - a.pontualidade || b.volumeEntregue - a.volumeEntregue);
+    // Melhor → pior: pontualidade primária, volume no mês como desempate
+    ranking.sort(
+      (a, b) =>
+        b.pontualidade - a.pontualidade || b.volumeCompetencia - a.volumeCompetencia,
+    );
 
-    // Série mensal de pontualidade (últimos 6 meses) para gráficos
+    // Série dos 6 meses terminando na competência selecionada
     const serieMensal: Array<{ competencia: string; pontualidadeMedia: number; volume: number }> = [];
-    const atual = competenciaAtual();
     for (let i = 5; i >= 0; i--) {
-      let mes = atual.mes - i;
-      let ano = atual.ano;
-      while (mes <= 0) {
-        mes += 12;
-        ano -= 1;
-      }
-      const comp = formatCompetencia(ano, mes);
+      const c = adicionarMesesCompetencia(competenciaBase, -i);
+      const comp = formatCompetencia(c.ano, c.mes);
       const tarefasComp = await prisma.tarefa.findMany({
         where: {
           competencia: comp,

@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { FileDown } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -13,6 +15,11 @@ import {
 } from 'recharts';
 import { api } from '../lib/api';
 import { Card, PageHeader } from '../components/ui';
+import {
+  competenciaAtualLocal,
+  emitirRelatorioRendimentoPdf,
+  formatCompetenciaExtenso,
+} from '../lib/rendimentoPdf';
 
 type RendimentoResponse = {
   competencia: string;
@@ -35,43 +42,83 @@ type RendimentoResponse = {
 };
 
 export function RendimentoPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['rendimento'],
-    queryFn: () => api<RendimentoResponse>('/dashboard/rendimento'),
+  const [competencia, setCompetencia] = useState(competenciaAtualLocal);
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['rendimento', competencia],
+    queryFn: () =>
+      api<RendimentoResponse>(
+        `/dashboard/rendimento?competencia=${encodeURIComponent(competencia)}`,
+      ),
   });
 
+  const ranking = data?.ranking ?? [];
+  const total = ranking.length;
+
   const mediaPont =
-    data && data.ranking.length > 0
-      ? Math.round(
-          (data.ranking.reduce((s, r) => s + r.pontualidade, 0) / data.ranking.length) * 10,
-        ) / 10
+    total > 0
+      ? Math.round((ranking.reduce((s, r) => s + r.pontualidade, 0) / total) * 10) / 10
       : 0;
 
-  const sobrecarregados = data?.ranking.filter((r) => r.percentualCarga > 90).length ?? 0;
+  const volumeMes = ranking.reduce((s, r) => s + r.volumeCompetencia, 0);
+  const sobrecarregados = ranking.filter((r) => r.percentualCarga > 90).length;
+
+  function handleEmitirPdf() {
+    if (!data || ranking.length === 0) return;
+    emitirRelatorioRendimentoPdf({
+      competencia: data.competencia,
+      ranking: data.ranking,
+      pontualidadeMedia: mediaPont,
+      volumeTotal: volumeMes,
+      sobrecarregados,
+    });
+  }
 
   return (
     <div>
       <PageHeader
         title="Rendimento da Equipe"
-        subtitle={`Competência de referência: ${data?.competencia ?? '—'}`}
+        subtitle={`Competência: ${formatCompetenciaExtenso(competencia)}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="font-medium">Mês</span>
+              <input
+                type="month"
+                value={competencia}
+                onChange={(e) => {
+                  if (e.target.value) setCompetencia(e.target.value);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleEmitirPdf}
+              disabled={!data || ranking.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileDown className="h-4 w-4" />
+              Emitir PDF
+            </button>
+          </div>
+        }
       />
 
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
         <Card title="Pontualidade média" value={`${mediaPont}%`} accent="emerald" />
-        <Card
-          title="Volume no mês"
-          value={data?.serieMensal.at(-1)?.volume ?? '—'}
-          accent="sky"
-        />
+        <Card title="Volume no mês" value={data ? volumeMes : '—'} accent="sky" />
         <Card
           title="Sobrecarregados"
           value={sobrecarregados}
-          subtitle="Carga acima de 90% da capacidade"
+          subtitle="Carga atual acima de 90% da capacidade"
           accent="amber"
         />
       </div>
 
-      {isLoading && <div className="text-slate-500 mb-4">Carregando...</div>}
+      {(isLoading || isFetching) && (
+        <div className="text-slate-500 mb-4">Carregando...</div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
@@ -114,54 +161,91 @@ export function RendimentoPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b font-semibold">Ranking da equipe</div>
+        <div className="px-4 py-3 border-b font-semibold flex flex-wrap items-center justify-between gap-2">
+          <span>Ranking da equipe</span>
+          <span className="text-xs font-normal text-slate-500">
+            Melhor → pior (pontualidade, depois volume no mês)
+          </span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
               <tr>
+                <th className="text-left px-4 py-3 w-16">Pos.</th>
                 <th className="text-left px-4 py-3">Colaborador</th>
                 <th className="text-right px-4 py-3">Pontualidade</th>
                 <th className="text-right px-4 py-3">Volume</th>
                 <th className="text-right px-4 py-3">Atraso médio</th>
-                <th className="text-right px-4 py-3">Carga</th>
+                <th className="text-right px-4 py-3">Carga atual</th>
                 <th className="text-right px-4 py-3">Ciclo (h)</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {(data?.ranking ?? []).map((r) => (
-                <tr key={r.colaborador.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{r.colaborador.nome}</div>
-                    <div className="text-xs text-slate-500">
-                      {r.colaborador.area} · {r.colaborador.cargo}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-emerald-700">
-                    {r.pontualidade}%
-                  </td>
-                  <td className="px-4 py-3 text-right">{r.volumeEntregue}</td>
-                  <td className="px-4 py-3 text-right">{r.atrasoMedioDias}d</td>
-                  <td className="px-4 py-3 text-right">
-                    <span
-                      className={
-                        r.percentualCarga > 90
-                          ? 'text-rose-600 font-semibold'
-                          : r.percentualCarga > 70
-                            ? 'text-amber-600'
-                            : 'text-slate-700'
-                      }
-                    >
-                      {r.percentualCarga}%
-                    </span>
-                    <div className="text-[10px] text-slate-400">
-                      {r.cargaAtual}/{r.capacidadeMensal}h
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {r.tempoMedioCicloHoras ?? '—'}
+              {ranking.map((r, index) => {
+                const pos = index + 1;
+                const isTop3 = index < 3;
+                const isBottom = total >= 4 && index >= Math.max(total - 2, 3);
+                const rowBg = isTop3
+                  ? 'bg-emerald-50/70'
+                  : isBottom
+                    ? 'bg-rose-50/60'
+                    : 'hover:bg-slate-50';
+
+                return (
+                  <tr key={r.colaborador.id} className={rowBg}>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          isTop3
+                            ? 'font-bold text-emerald-700'
+                            : isBottom
+                              ? 'font-semibold text-rose-700'
+                              : 'font-semibold text-slate-600'
+                        }
+                      >
+                        {pos}º
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{r.colaborador.nome}</div>
+                      <div className="text-xs text-slate-500">
+                        {r.colaborador.area} · {r.colaborador.cargo}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-emerald-700">
+                      {r.pontualidade}%
+                    </td>
+                    <td className="px-4 py-3 text-right">{r.volumeCompetencia}</td>
+                    <td className="px-4 py-3 text-right">{r.atrasoMedioDias}d</td>
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        className={
+                          r.percentualCarga > 90
+                            ? 'text-rose-600 font-semibold'
+                            : r.percentualCarga > 70
+                              ? 'text-amber-600'
+                              : 'text-slate-700'
+                        }
+                      >
+                        {r.percentualCarga}%
+                      </span>
+                      <div className="text-[10px] text-slate-400">
+                        {r.cargaAtual}/{r.capacidadeMensal}h
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {r.tempoMedioCicloHoras ?? '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!isLoading && ranking.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    Nenhum colaborador no ranking para esta competência.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
