@@ -82,6 +82,10 @@ export type Tarefa = {
   dataConclusao?: string | null;
   protocolo?: string | null;
   observacao?: string | null;
+  evidenciaDescricao?: string | null;
+  evidenciaNomeArquivo?: string | null;
+  evidenciaMimeType?: string | null;
+  evidenciaCaminho?: string | null;
   esforcoEstimado: number;
   atrasada?: boolean;
   semaforo?: Semaforo;

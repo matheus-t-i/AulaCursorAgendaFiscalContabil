@@ -80,11 +80,25 @@ export const vincularObrigacaoSchema = z.object({
   ativo: z.boolean().optional(),
 });
 
-export const updateStatusSchema = z.object({
-  status: statusTarefaSchema,
-  protocolo: z.string().optional().nullable(),
-  observacao: z.string().optional().nullable(),
-});
+export const updateStatusSchema = z
+  .object({
+    status: statusTarefaSchema,
+    protocolo: z.string().optional().nullable(),
+    observacao: z.string().optional().nullable(),
+    evidenciaDescricao: z.string().optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === 'CONCLUIDA') {
+      const desc = data.evidenciaDescricao?.trim();
+      if (!desc) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Informe a descrição da evidência para concluir a tarefa',
+          path: ['evidenciaDescricao'],
+        });
+      }
+    }
+  });
 
 export const updateResponsavelSchema = z.object({
   responsavelId: z.string().nullable(),

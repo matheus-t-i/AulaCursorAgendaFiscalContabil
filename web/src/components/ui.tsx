@@ -1,19 +1,20 @@
+import type { ReactNode } from 'react';
 import type { Semaforo, StatusTarefa } from '../types';
 
 const SEM_CORES: Record<Semaforo, string> = {
-  PRETO: 'bg-slate-900 text-white',
+  PRETO: 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900',
   VERMELHO: 'bg-rose-500 text-white',
   AMARELO: 'bg-amber-400 text-slate-900',
   VERDE: 'bg-emerald-500 text-white',
-  CINZA: 'bg-slate-300 text-slate-700',
+  CINZA: 'bg-slate-300 text-slate-700 dark:bg-slate-600 dark:text-slate-100',
 };
 
 const SEM_DOT: Record<Semaforo, string> = {
-  PRETO: 'bg-slate-900',
+  PRETO: 'bg-slate-900 dark:bg-slate-100',
   VERMELHO: 'bg-rose-500',
   AMARELO: 'bg-amber-400',
   VERDE: 'bg-emerald-500',
-  CINZA: 'bg-slate-300',
+  CINZA: 'bg-slate-300 dark:bg-slate-500',
 };
 
 export function SemaforoBadge({ value }: { value?: Semaforo }) {
@@ -27,7 +28,7 @@ export function SemaforoBadge({ value }: { value?: Semaforo }) {
 }
 
 export function SemaforoDot({ value }: { value?: Semaforo }) {
-  if (!value) return <span className="w-2.5 h-2.5 rounded-full bg-slate-200 inline-block" />;
+  if (!value) return <span className="w-2.5 h-2.5 rounded-full bg-border inline-block" />;
   return <span className={`w-2.5 h-2.5 rounded-full inline-block ${SEM_DOT[value]}`} title={value} />;
 }
 
@@ -40,11 +41,11 @@ const STATUS_LABEL: Record<StatusTarefa, string> = {
 };
 
 const STATUS_COR: Record<StatusTarefa, string> = {
-  PENDENTE: 'bg-slate-100 text-slate-700',
-  EM_ANDAMENTO: 'bg-sky-100 text-sky-800',
-  AGUARDANDO_CLIENTE: 'bg-violet-100 text-violet-800',
-  CONCLUIDA: 'bg-emerald-100 text-emerald-800',
-  DISPENSADA: 'bg-slate-200 text-slate-500',
+  PENDENTE: 'bg-muted-bg text-fg',
+  EM_ANDAMENTO: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200',
+  AGUARDANDO_CLIENTE: 'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200',
+  CONCLUIDA: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
+  DISPENSADA: 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300',
 };
 
 export function StatusBadge({ value }: { value: StatusTarefa }) {
@@ -67,22 +68,20 @@ export function Card({
   accent?: 'slate' | 'rose' | 'amber' | 'emerald' | 'sky';
 }) {
   const accents = {
-    slate: 'border-slate-200',
-    rose: 'border-rose-300',
-    amber: 'border-amber-300',
-    emerald: 'border-emerald-300',
-    sky: 'border-sky-300',
+    slate: 'border-border',
+    rose: 'border-rose-300 dark:border-rose-700',
+    amber: 'border-amber-300 dark:border-amber-700',
+    emerald: 'border-emerald-300 dark:border-emerald-700',
+    sky: 'border-sky-300 dark:border-sky-700',
   };
   return (
-    <div className={`bg-white rounded-xl border ${accents[accent]} shadow-sm p-4`}>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{title}</div>
-      <div className="text-2xl font-semibold mt-1">{value}</div>
-      {subtitle && <div className="text-xs text-slate-500 mt-1">{subtitle}</div>}
+    <div className={`bg-surface rounded-xl border ${accents[accent]} shadow-sm p-4`}>
+      <div className="text-xs uppercase tracking-wide text-muted">{title}</div>
+      <div className="text-2xl font-semibold mt-1 text-fg">{value}</div>
+      {subtitle && <div className="text-xs text-muted mt-1">{subtitle}</div>}
     </div>
   );
 }
-
-import type { ReactNode } from 'react';
 
 export function PageHeader({
   title,
@@ -96,10 +95,10 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-        {subtitle && <p className="text-slate-500 mt-1">{subtitle}</p>}
+        <h1 className="text-xl sm:text-2xl font-semibold text-fg">{title}</h1>
+        {subtitle && <p className="text-muted mt-1 text-sm sm:text-base">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2 w-full sm:w-auto">{actions}</div>}
     </div>
   );
 }

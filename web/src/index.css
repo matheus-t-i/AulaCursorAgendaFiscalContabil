@@ -1,8 +1,65 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-app-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-hover: var(--app-surface-hover);
+  --color-muted-bg: var(--app-muted-bg);
+  --color-border: var(--app-border);
+  --color-fg: var(--app-fg);
+  --color-muted: var(--app-muted);
+  --color-accent: var(--app-accent);
+  --color-accent-fg: var(--app-accent-fg);
+  --color-sidebar: var(--app-sidebar);
+  --color-sidebar-fg: var(--app-sidebar-fg);
+  --color-sidebar-muted: var(--app-sidebar-muted);
+  --color-sidebar-hover: var(--app-sidebar-hover);
+  --color-sidebar-border: var(--app-sidebar-border);
+}
+
+:root {
+  color-scheme: light;
+  --app-bg: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-hover: #f1f5f9;
+  --app-muted-bg: #f1f5f9;
+  --app-border: #e2e8f0;
+  --app-fg: #0f172a;
+  --app-muted: #64748b;
+  --app-accent: #059669;
+  --app-accent-fg: #ffffff;
+  --app-sidebar: #0f172a;
+  --app-sidebar-fg: #f1f5f9;
+  --app-sidebar-muted: #94a3b8;
+  --app-sidebar-hover: #1e293b;
+  --app-sidebar-border: #334155;
+}
+
+.dark {
+  color-scheme: dark;
+  --app-bg: #0b1220;
+  --app-surface: #111827;
+  --app-surface-hover: #1f2937;
+  --app-muted-bg: #1e293b;
+  --app-border: #1f2937;
+  --app-fg: #e5e7eb;
+  --app-muted: #94a3b8;
+  --app-accent: #10b981;
+  --app-accent-fg: #022c22;
+  --app-sidebar: #020617;
+  --app-sidebar-fg: #f1f5f9;
+  --app-sidebar-muted: #94a3b8;
+  --app-sidebar-hover: #0f172a;
+  --app-sidebar-border: #1e293b;
+}
+
 body {
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--app-fg);
 }
 
 #root {

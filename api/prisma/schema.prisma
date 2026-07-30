@@ -176,6 +176,10 @@ model Tarefa {
   dataConclusao       DateTime?
   protocolo           String?
   observacao          String?
+  evidenciaDescricao  String?
+  evidenciaNomeArquivo String?
+  evidenciaMimeType   String?
+  evidenciaCaminho    String?
   esforcoEstimado     Int          @default(2)
   criadoEm            DateTime     @default(now())
   atualizadoEm        DateTime     @updatedAt
