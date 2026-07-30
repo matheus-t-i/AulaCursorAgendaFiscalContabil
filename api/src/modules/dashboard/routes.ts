@@ -5,6 +5,7 @@ import { authRequired } from '../../middleware/auth.js';
 import { calcularSemaforo, isAtrasada, estimarMulta } from '../../domain/risco.js';
 import { montarKpiColaborador } from '../../domain/rendimento.js';
 import { formatCompetencia, competenciaAtual } from '../../domain/vencimento.js';
+import { toDateOnlyKey } from '../../lib/dateOnly.js';
 
 export const dashboardRouter = Router();
 
@@ -122,7 +123,7 @@ dashboardRouter.get('/agenda', authRequired, async (req, res, next) => {
 
     const enriquecidas = tarefas.map((t) => {
       const semaforo = calcularSemaforo(t.status, t.dataVencimento, undefined, feriadosInfo);
-      const key = t.dataVencimento.toISOString().slice(0, 10);
+      const key = toDateOnlyKey(t.dataVencimento);
       if (!porDia[key]) {
         porDia[key] = {
           data: key,

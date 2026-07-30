@@ -14,6 +14,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { api, formatDate } from '../lib/api';
+import { localDateKey, toDateOnlyKey } from '../lib/dateOnly';
 import { PageHeader, SemaforoBadge, StatusBadge } from '../components/ui';
 import type { Cliente, Colaborador, Semaforo, Tarefa } from '../types';
 
@@ -75,9 +76,8 @@ export function AgendaPage() {
 
   const tarefasDoDia = useMemo(() => {
     if (!diaSelecionado || !data) return [];
-    return data.tarefas.filter((t) =>
-      isSameDay(new Date(t.dataVencimento), diaSelecionado),
-    );
+    const key = localDateKey(diaSelecionado);
+    return data.tarefas.filter((t) => toDateOnlyKey(t.dataVencimento) === key);
   }, [data, diaSelecionado]);
 
   function corDia(info?: AgendaResponse['dias'][number]) {
@@ -163,7 +163,7 @@ export function AgendaPage() {
           </div>
           <div className="grid grid-cols-7 gap-1">
             {diasCalendario.map((dia) => {
-              const key = format(dia, 'yyyy-MM-dd');
+              const key = localDateKey(dia);
               const info = contagemPorDia.get(key);
               const noMes = isSameMonth(dia, cursor);
               const selecionado = diaSelecionado && isSameDay(dia, diaSelecionado);
@@ -186,6 +186,7 @@ export function AgendaPage() {
                         {info.vermelhos > 0 && <span className="w-2 h-2 rounded-full bg-rose-500" />}
                         {info.amarelos > 0 && <span className="w-2 h-2 rounded-full bg-amber-400" />}
                         {info.verdes > 0 && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
+                        {info.cinzas > 0 && <span className="w-2 h-2 rounded-full bg-slate-400" />}
                       </div>
                     </div>
                   )}

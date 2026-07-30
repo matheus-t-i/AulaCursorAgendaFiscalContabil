@@ -4,11 +4,20 @@ import { api } from '../lib/api';
 import { PageHeader } from '../components/ui';
 import type { Cliente, Colaborador, Obrigacao } from '../types';
 import { useAuth } from '../lib/auth';
+import {
+  cnpjPlaceholder,
+  formatCnpj,
+  isCnpjValido,
+  maskCnpj,
+  mensagemErroCnpj,
+  onlyCnpjChars,
+} from '../lib/cnpj';
 
 export function ClientesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [aberto, setAberto] = useState(false);
+  const [cnpjTouched, setCnpjTouched] = useState(false);
   const [form, setForm] = useState({
     razaoSocial: '',
     cnpj: '',
@@ -29,18 +38,23 @@ export function ClientesPage() {
     queryFn: () => api<Colaborador[]>('/colaboradores'),
   });
 
+  const cnpjErro = mensagemErroCnpj(form.cnpj);
+  const cnpjOk = isCnpjValido(form.cnpj);
+
   const criar = useMutation({
     mutationFn: () =>
       api('/clientes', {
         method: 'POST',
         body: JSON.stringify({
           ...form,
+          cnpj: formatCnpj(form.cnpj),
           responsavelPadraoId: form.responsavelPadraoId || null,
         }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clientes'] });
       setAberto(false);
+      setCnpjTouched(false);
       setForm({
         razaoSocial: '',
         cnpj: '',
@@ -76,6 +90,8 @@ export function ClientesPage() {
           className="bg-white border rounded-xl p-4 mb-6 grid sm:grid-cols-2 gap-3"
           onSubmit={(e) => {
             e.preventDefault();
+            setCnpjTouched(true);
+            if (!cnpjOk) return;
             criar.mutate();
           }}
         >
@@ -86,13 +102,37 @@ export function ClientesPage() {
             value={form.razaoSocial}
             onChange={(e) => setForm({ ...form, razaoSocial: e.target.value })}
           />
-          <input
-            className="border rounded-lg px-3 py-2 text-sm"
-            placeholder="CNPJ"
-            required
-            value={form.cnpj}
-            onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-          />
+          <div>
+            <input
+              className={`w-full border rounded-lg px-3 py-2 text-sm font-mono tracking-wide uppercase ${
+                cnpjTouched && cnpjErro
+                  ? 'border-rose-400 focus:ring-rose-500'
+                  : cnpjOk
+                    ? 'border-emerald-400'
+                    : 'border-slate-300'
+              }`}
+              placeholder={cnpjPlaceholder(form.cnpj)}
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              required
+              maxLength={18}
+              value={form.cnpj}
+              onBlur={() => setCnpjTouched(true)}
+              onChange={(e) => {
+                setForm({ ...form, cnpj: maskCnpj(e.target.value) });
+              }}
+            />
+            <div className="mt-1 text-[11px] text-slate-500">
+              {/[A-Z]/i.test(onlyCnpjChars(form.cnpj))
+                ? 'CNPJ alfanumérico · AA.AAA.AAA/AAAA-DV'
+                : 'CNPJ numérico · 00.000.000/0000-00'}
+              {' · '}DV sempre numérico
+            </div>
+            {cnpjTouched && cnpjErro && (
+              <div className="mt-1 text-xs text-rose-600">{cnpjErro}</div>
+            )}
+          </div>
           <select
             className="border rounded-lg px-3 py-2 text-sm"
             value={form.regimeTributario}
@@ -148,8 +188,8 @@ export function ClientesPage() {
           </label>
           <button
             type="submit"
-            className="sm:col-span-2 bg-slate-900 text-white rounded-lg py-2 text-sm"
-            disabled={criar.isPending}
+            className="sm:col-span-2 bg-slate-900 text-white rounded-lg py-2 text-sm disabled:opacity-50"
+            disabled={criar.isPending || (cnpjTouched && !cnpjOk)}
           >
             Salvar
           </button>
@@ -179,7 +219,7 @@ export function ClientesPage() {
               <tr key={c.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <div className="font-medium">{c.razaoSocial}</div>
-                  <div className="text-xs text-slate-500">{c.cnpj}</div>
+                  <div className="text-xs text-slate-500 font-mono">{formatCnpj(c.cnpj)}</div>
                 </td>
                 <td className="px-4 py-3">{c.regimeTributario}</td>
                 <td className="px-4 py-3">

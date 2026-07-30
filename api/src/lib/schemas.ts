@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatCnpj, isCnpjValido, onlyCnpjChars } from './cnpj.js';
 
 export const regimeSchema = z.enum(['MEI', 'SIMPLES', 'PRESUMIDO', 'REAL']);
 export const areaSchema = z.enum(['FISCAL', 'CONTABIL', 'DP', 'SOCIETARIO']);
@@ -10,6 +11,17 @@ export const statusTarefaSchema = z.enum([
   'CONCLUIDA',
   'DISPENSADA',
 ]);
+
+const cnpjSchema = z
+  .string()
+  .min(1, 'Informe o CNPJ')
+  .transform((v) => formatCnpj(v))
+  .refine((v) => onlyCnpjChars(v).length === 14, {
+    message: 'CNPJ deve ter 14 caracteres (máscara XX.XXX.XXX/XXXX-DV)',
+  })
+  .refine((v) => isCnpjValido(v), {
+    message: 'CNPJ inválido (dígito verificador ou formato)',
+  });
 
 export const createColaboradorSchema = z.object({
   nome: z.string().min(2),
@@ -26,7 +38,7 @@ export const updateColaboradorSchema = createColaboradorSchema.partial();
 
 export const createClienteSchema = z.object({
   razaoSocial: z.string().min(2),
-  cnpj: z.string().min(14),
+  cnpj: cnpjSchema,
   regimeTributario: regimeSchema,
   temFolha: z.boolean().optional(),
   uf: z.string().length(2),
