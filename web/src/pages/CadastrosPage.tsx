@@ -1,0 +1,399 @@
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import { PageHeader } from '../components/ui';
+import type { Cliente, Colaborador, Obrigacao } from '../types';
+import { useAuth } from '../lib/auth';
+
+export function ClientesPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState({
+    razaoSocial: '',
+    cnpj: '',
+    regimeTributario: 'SIMPLES',
+    temFolha: false,
+    uf: 'SP',
+    municipio: '',
+    responsavelPadraoId: '',
+    vincularPacoteRegime: true,
+  });
+
+  const { data: clientes = [], isLoading } = useQuery({
+    queryKey: ['clientes'],
+    queryFn: () => api<Cliente[]>('/clientes'),
+  });
+  const { data: colaboradores = [] } = useQuery({
+    queryKey: ['colaboradores'],
+    queryFn: () => api<Colaborador[]>('/colaboradores'),
+  });
+
+  const criar = useMutation({
+    mutationFn: () =>
+      api('/clientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...form,
+          responsavelPadraoId: form.responsavelPadraoId || null,
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clientes'] });
+      setAberto(false);
+      setForm({
+        razaoSocial: '',
+        cnpj: '',
+        regimeTributario: 'SIMPLES',
+        temFolha: false,
+        uf: 'SP',
+        municipio: '',
+        responsavelPadraoId: '',
+        vincularPacoteRegime: true,
+      });
+    },
+  });
+
+  return (
+    <div>
+      <PageHeader
+        title="Clientes"
+        subtitle="Cadastro e pacote de obrigações por regime"
+        actions={
+          user?.papel === 'GESTOR' && (
+            <button
+              onClick={() => setAberto((v) => !v)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              {aberto ? 'Fechar' : 'Novo cliente'}
+            </button>
+          )
+        }
+      />
+
+      {aberto && (
+        <form
+          className="bg-white border rounded-xl p-4 mb-6 grid sm:grid-cols-2 gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            criar.mutate();
+          }}
+        >
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="Razão social"
+            required
+            value={form.razaoSocial}
+            onChange={(e) => setForm({ ...form, razaoSocial: e.target.value })}
+          />
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="CNPJ"
+            required
+            value={form.cnpj}
+            onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
+          />
+          <select
+            className="border rounded-lg px-3 py-2 text-sm"
+            value={form.regimeTributario}
+            onChange={(e) => setForm({ ...form, regimeTributario: e.target.value })}
+          >
+            <option value="MEI">MEI</option>
+            <option value="SIMPLES">Simples</option>
+            <option value="PRESUMIDO">Presumido</option>
+            <option value="REAL">Lucro Real</option>
+          </select>
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="Município"
+            required
+            value={form.municipio}
+            onChange={(e) => setForm({ ...form, municipio: e.target.value })}
+          />
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="UF"
+            maxLength={2}
+            required
+            value={form.uf}
+            onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })}
+          />
+          <select
+            className="border rounded-lg px-3 py-2 text-sm"
+            value={form.responsavelPadraoId}
+            onChange={(e) => setForm({ ...form, responsavelPadraoId: e.target.value })}
+          >
+            <option value="">Responsável padrão</option>
+            {colaboradores.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.temFolha}
+              onChange={(e) => setForm({ ...form, temFolha: e.target.checked })}
+            />
+            Tem folha de pagamento
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.vincularPacoteRegime}
+              onChange={(e) => setForm({ ...form, vincularPacoteRegime: e.target.checked })}
+            />
+            Vincular pacote do regime
+          </label>
+          <button
+            type="submit"
+            className="sm:col-span-2 bg-slate-900 text-white rounded-lg py-2 text-sm"
+            disabled={criar.isPending}
+          >
+            Salvar
+          </button>
+          {criar.isError && (
+            <div className="sm:col-span-2 text-sm text-rose-600">
+              {(criar.error as Error).message}
+            </div>
+          )}
+        </form>
+      )}
+
+      {isLoading && <div className="text-slate-500">Carregando...</div>}
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="text-left px-4 py-3">Cliente</th>
+              <th className="text-left px-4 py-3">Regime</th>
+              <th className="text-left px-4 py-3">Local</th>
+              <th className="text-left px-4 py-3">Responsável</th>
+              <th className="text-right px-4 py-3">Obrigações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {clientes.map((c) => (
+              <tr key={c.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3">
+                  <div className="font-medium">{c.razaoSocial}</div>
+                  <div className="text-xs text-slate-500">{c.cnpj}</div>
+                </td>
+                <td className="px-4 py-3">{c.regimeTributario}</td>
+                <td className="px-4 py-3">
+                  {c.municipio}/{c.uf}
+                </td>
+                <td className="px-4 py-3">{c.responsavelPadrao?.nome ?? '—'}</td>
+                <td className="px-4 py-3 text-right">{c._count?.obrigacoes ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function ColaboradoresPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState({
+    nome: '',
+    email: '',
+    cargo: '',
+    area: 'FISCAL',
+    capacidadeMensal: 160,
+    papel: 'COLABORADOR',
+    senha: 'senha123',
+  });
+
+  const { data: lista = [], isLoading } = useQuery({
+    queryKey: ['colaboradores'],
+    queryFn: () => api<Colaborador[]>('/colaboradores'),
+  });
+
+  const criar = useMutation({
+    mutationFn: () =>
+      api('/colaboradores', {
+        method: 'POST',
+        body: JSON.stringify(form),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['colaboradores'] });
+      setAberto(false);
+    },
+  });
+
+  return (
+    <div>
+      <PageHeader
+        title="Colaboradores"
+        subtitle="Equipe do escritório e capacidade de esforço"
+        actions={
+          user?.papel === 'GESTOR' && (
+            <button
+              onClick={() => setAberto((v) => !v)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              {aberto ? 'Fechar' : 'Novo colaborador'}
+            </button>
+          )
+        }
+      />
+
+      {aberto && (
+        <form
+          className="bg-white border rounded-xl p-4 mb-6 grid sm:grid-cols-2 gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            criar.mutate();
+          }}
+        >
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="Nome"
+            required
+            value={form.nome}
+            onChange={(e) => setForm({ ...form, nome: e.target.value })}
+          />
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="E-mail"
+            type="email"
+            required
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            placeholder="Cargo"
+            required
+            value={form.cargo}
+            onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+          />
+          <select
+            className="border rounded-lg px-3 py-2 text-sm"
+            value={form.area}
+            onChange={(e) => setForm({ ...form, area: e.target.value })}
+          >
+            <option value="FISCAL">Fiscal</option>
+            <option value="CONTABIL">Contábil</option>
+            <option value="DP">DP</option>
+            <option value="SOCIETARIO">Societário</option>
+          </select>
+          <select
+            className="border rounded-lg px-3 py-2 text-sm"
+            value={form.papel}
+            onChange={(e) => setForm({ ...form, papel: e.target.value })}
+          >
+            <option value="COLABORADOR">Colaborador</option>
+            <option value="GESTOR">Gestor</option>
+          </select>
+          <input
+            className="border rounded-lg px-3 py-2 text-sm"
+            type="number"
+            placeholder="Capacidade mensal (h)"
+            value={form.capacidadeMensal}
+            onChange={(e) => setForm({ ...form, capacidadeMensal: Number(e.target.value) })}
+          />
+          <input
+            className="border rounded-lg px-3 py-2 text-sm sm:col-span-2"
+            type="password"
+            placeholder="Senha inicial"
+            value={form.senha}
+            onChange={(e) => setForm({ ...form, senha: e.target.value })}
+          />
+          <button type="submit" className="sm:col-span-2 bg-slate-900 text-white rounded-lg py-2 text-sm">
+            Salvar
+          </button>
+        </form>
+      )}
+
+      {isLoading && <div className="text-slate-500">Carregando...</div>}
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {lista.map((c) => (
+          <div key={c.id} className="bg-white border rounded-xl p-4 shadow-sm">
+            <div className="font-semibold">{c.nome}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{c.email}</div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="bg-slate-100 px-2 py-0.5 rounded-full">{c.area}</span>
+              <span className="bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">{c.papel}</span>
+              <span className="bg-sky-50 text-sky-800 px-2 py-0.5 rounded-full">
+                {c.capacidadeMensal}h/mês
+              </span>
+            </div>
+            <div className="text-sm text-slate-600 mt-3">{c.cargo}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ObrigacoesPage() {
+  const { data: lista = [], isLoading } = useQuery({
+    queryKey: ['obrigacoes'],
+    queryFn: () => api<Obrigacao[]>('/obrigacoes'),
+  });
+
+  return (
+    <div>
+      <PageHeader
+        title="Catálogo de Obrigações"
+        subtitle="Obrigações fiscais, contábeis e de DP com regra de vencimento"
+      />
+
+      {isLoading && <div className="text-slate-500">Carregando...</div>}
+
+      <div className="bg-white rounded-xl border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="text-left px-4 py-3">Código</th>
+              <th className="text-left px-4 py-3">Nome</th>
+              <th className="text-left px-4 py-3">Área</th>
+              <th className="text-left px-4 py-3">Periodicidade</th>
+              <th className="text-left px-4 py-3">Vencimento</th>
+              <th className="text-left px-4 py-3">Criticidade</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {lista.map((o) => (
+              <tr key={o.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-mono text-xs font-semibold">{o.codigo}</td>
+                <td className="px-4 py-3">
+                  <div>{o.nome}</div>
+                  <div className="text-xs text-slate-500">{o.baseLegal}</div>
+                </td>
+                <td className="px-4 py-3">{o.area}</td>
+                <td className="px-4 py-3">{o.periodicidade}</td>
+                <td className="px-4 py-3 text-xs">
+                  {o.regraVencimento}
+                  {o.dia ? ` · dia ${o.dia}` : ''}
+                  <div className="text-slate-400">defasagem {o.mesesDefasagem}m</div>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs ${
+                      o.criticidade === 'CRITICA'
+                        ? 'bg-rose-100 text-rose-800'
+                        : o.criticidade === 'ALTA'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {o.criticidade}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
