@@ -2,6 +2,18 @@ import type { User } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+export class ApiError extends Error {
+  code?: string;
+  status: number;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function getToken(): string | null {
   return localStorage.getItem('token');
 }
@@ -56,7 +68,7 @@ export async function api<T>(
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
-    throw new Error(data?.error || `Erro ${res.status}`);
+    throw new ApiError(data?.error || `Erro ${res.status}`, res.status, data?.code);
   }
 
   return data as T;
@@ -77,13 +89,15 @@ export async function fetchEvidenciaArquivo(tarefaId: string): Promise<{
   const res = await fetch(`${API_URL}/tarefas/${tarefaId}/evidencia`, { headers });
   if (!res.ok) {
     let message = `Erro ${res.status}`;
+    let code: string | undefined;
     try {
       const data = await res.json();
       if (data?.error) message = data.error;
+      if (data?.code) code = data.code;
     } catch {
       /* ignore */
     }
-    throw new Error(message);
+    throw new ApiError(message, res.status, code);
   }
 
   const disposition = res.headers.get('Content-Disposition') ?? '';

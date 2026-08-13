@@ -106,3 +106,22 @@ export type Resumo = {
   exposicaoMulta: number;
   pendentes: number;
 };
+
+export type StatusReativacao = 'PENDENTE' | 'APROVADO' | 'RECUSADO';
+
+export type ReativacaoPedido = {
+  id: string;
+  colaboradorId: string;
+  status: StatusReativacao;
+  criadoEm: string;
+  decididoEm?: string | null;
+  colaborador: {
+    id: string;
+    nome: string;
+    email: string;
+    cargo: string;
+    area: Area;
+    papel: Papel;
+    ativo: boolean;
+  };
+};

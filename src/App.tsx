@@ -8,6 +8,8 @@ import { MinhasTarefasPage } from './pages/MinhasTarefasPage';
 import { AtrasosPage } from './pages/AtrasosPage';
 import { RendimentoPage } from './pages/RendimentoPage';
 import { ClientesPage, ColaboradoresPage, ObrigacoesPage } from './pages/CadastrosPage';
+import { ConfiguracoesPage } from './pages/ConfiguracoesPage';
+import { AguardandoAprovacaoPage } from './pages/AguardandoAprovacaoPage';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/aguardando-aprovacao" element={<AguardandoAprovacaoPage />} />
       <Route
         path="/"
         element={
@@ -41,6 +44,7 @@ export default function App() {
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="colaboradores" element={<ColaboradoresPage />} />
         <Route path="obrigacoes" element={<ObrigacoesPage />} />
+        <Route path="configuracoes" element={<ConfiguracoesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

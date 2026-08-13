@@ -14,6 +14,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useTheme, type ThemePreference } from '../lib/theme';
@@ -29,6 +30,7 @@ const links = [
   { to: '/clientes', label: 'Clientes', icon: Building2 },
   { to: '/colaboradores', label: 'Colaboradores', icon: Users },
   { to: '/obrigacoes', label: 'Catálogo', icon: BookOpen },
+  { to: '/configuracoes', label: 'Configurações', icon: Settings },
 ];
 
 const themeOptions: Array<{
